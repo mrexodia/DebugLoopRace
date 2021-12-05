@@ -1,0 +1,17 @@
+[project]
+name = "DebugLoopRace"
+version = "0.1.0"
+
+[target.DebugLoop]
+type = "executable"
+sources = ["src/DebugLoop/*.cpp"]
+include-directories = ["include"]
+link-options = ["/INCREMENTAL:NO"]
+
+[target.DebugLoop.properties]
+VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
+
+[target.DebugMe]
+type = "executable"
+sources = ["src/DebugMe/*.cpp"]
+link-options = ["/DYNAMICBASE:NO", "/INCREMENTAL:NO"]
