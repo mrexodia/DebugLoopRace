@@ -20,6 +20,8 @@ int main(int argc, char** argv)
 	ULONG_PTR raceFunction = 0, raceCounter = 0;
 
 	int exitCode = EXIT_FAILURE;
+	unsigned int breakpointHitCounter = 0;
+	unsigned int expectedHitCounter = 0;
 	bool threadStepping = false;
 	ULONG_PTR breakpointAddress = 0;
 	for (bool continueDebugging = true; continueDebugging;)
@@ -60,6 +62,7 @@ int main(int argc, char** argv)
 				if (breakpointItr != breakpoints.end())
 				{
 					printf("Hit breakpoint %p\n", breakpointAddress);
+					breakpointHitCounter++;
 					// restore original byte
 					SIZE_T temp = 0;
 					if (!WriteProcessMemory(pi.hProcess, LPVOID(breakpointAddress), &breakpointItr->second, 1, &temp))
@@ -168,7 +171,7 @@ int main(int argc, char** argv)
 					printf("Set breakpoint at %p\n", address);
 				};
 
-				setBreakpoint(ULONG_PTR(process.lpStartAddress));
+				//setBreakpoint(ULONG_PTR(process.lpStartAddress)); // entry breakpoint (for testing)
 				setBreakpoint(raceFunction);
 			}
 		}
@@ -181,6 +184,8 @@ int main(int argc, char** argv)
 
 		case EXIT_PROCESS_DEBUG_EVENT:
 		{
+			SIZE_T temp = 0;
+			ReadProcessMemory(pi.hProcess, (LPVOID)raceCounter, &expectedHitCounter, sizeof(expectedHitCounter), &temp);
 			continueDebugging = false;
 		}
 		break;
@@ -216,6 +221,8 @@ int main(int argc, char** argv)
 
 	CloseHandle(pi.hThread);
 	CloseHandle(pi.hProcess);
+
+	printf("breakpointHitCounter: %d == %d?\n", breakpointHitCounter, expectedHitCounter);
 
 	return exitCode;
 }
