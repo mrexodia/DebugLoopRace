@@ -1,4 +1,7 @@
 #include <map>
+#include <vector>
+#include <cassert>
+#include <utility>
 #include <Windows.h>
 
 int main(int argc, char** argv)
@@ -17,8 +20,11 @@ int main(int argc, char** argv)
 	}
 
 	std::map<ULONG_PTR, unsigned char> breakpoints;
+	std::map<DWORD, HANDLE> threads;
 	ULONG_PTR raceFunction = 0, raceCounter = 0;
 
+	DWORD threadSteppingId = 0;
+	std::vector<std::pair<DWORD, HANDLE>> suspendedThreads;
 	int exitCode = EXIT_FAILURE;
 	unsigned int breakpointHitCounter = 0;
 	unsigned int expectedHitCounter = 0;
@@ -55,7 +61,13 @@ int main(int argc, char** argv)
 		case EXCEPTION_DEBUG_EVENT:
 		{
 			const auto& exception = debugEvent.u.Exception.ExceptionRecord;
-			if (exception.ExceptionCode == EXCEPTION_BREAKPOINT)
+			if (threadSteppingId != 0 && debugEvent.dwThreadId != threadSteppingId)
+			{
+				// Reply later if we are currently stepping
+				assert(threadStepping); // TODO: fold these things together in a single state variable
+				continueStatus = DBG_REPLY_LATER;
+			}
+			else if (exception.ExceptionCode == EXCEPTION_BREAKPOINT)
 			{
 				breakpointAddress = (ULONG_PTR)exception.ExceptionAddress;
 				auto breakpointItr = breakpoints.find(breakpointAddress);
@@ -70,7 +82,8 @@ int main(int argc, char** argv)
 						puts("failed to restore original byte");
 					}
 					// set trap flag
-					auto hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, debugEvent.dwThreadId);
+					auto threadId = debugEvent.dwThreadId;
+					auto hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, threadId);
 					if (hThread)
 					{
 						CONTEXT context;
@@ -80,6 +93,20 @@ int main(int argc, char** argv)
 						//context.Rip = breakpointItr->first;
 						SetThreadContext(hThread, &context);
 						CloseHandle(hThread);
+
+						// Suspend all other threads to handle race condition
+						assert(suspendedThreads.empty());
+						for (const auto& itr : threads)
+						{
+							if (itr.first != threadId)
+							{
+								if (SuspendThread(itr.second) != (DWORD)-1)
+								{
+									suspendedThreads.push_back(itr);
+								}
+							}
+						}
+						threadSteppingId = threadId;
 					}
 					else
 					{
@@ -92,6 +119,17 @@ int main(int argc, char** argv)
 			}
 			else if (exception.ExceptionCode == EXCEPTION_SINGLE_STEP && threadStepping)
 			{
+				// Confirm the single step event is for the thread we expect
+				assert(threadSteppingId == debugEvent.dwThreadId);
+
+				// Resume the other threads
+				for (const auto& itr : suspendedThreads)
+				{
+					ResumeThread(itr.second);
+				}
+				suspendedThreads.clear();
+				threadSteppingId = 0;
+
 				printf("single step after breakpoint %p\n", breakpointAddress);
 				// restore CC
 				unsigned char breakpointByte = 0xCC;
@@ -128,11 +166,23 @@ int main(int argc, char** argv)
 
 		case CREATE_THREAD_DEBUG_EVENT:
 		{
+			auto threadId = debugEvent.dwThreadId;
+			assert(threads.count(threadId) == 0);
+			auto hThread = OpenThread(THREAD_ALL_ACCESS, false, threadId);
+			assert(hThread != nullptr);
+			threads.emplace(threadId, hThread);
 		}
 		break;
 
 		case CREATE_PROCESS_DEBUG_EVENT:
 		{
+			// manage threads
+			auto threadId = debugEvent.dwThreadId;
+			assert(threads.count(threadId) == 0);
+			auto hThread = OpenThread(THREAD_ALL_ACCESS, false, threadId);
+			assert(hThread != nullptr);
+			threads.emplace(threadId, hThread);
+
 			const auto& process = debugEvent.u.CreateProcessInfo;
 			if (process.hFile)
 			{
@@ -179,6 +229,11 @@ int main(int argc, char** argv)
 
 		case EXIT_THREAD_DEBUG_EVENT:
 		{
+			auto threadId = debugEvent.dwThreadId;
+			assert(threads.count(threadId) != 0);
+			auto hThread = threads.at(threadId);
+			CloseHandle(hThread);
+			threads.erase(threadId);
 		}
 		break;
 
@@ -207,7 +262,7 @@ int main(int argc, char** argv)
 
 		case RIP_EVENT:
 		{
-
+			assert(false);
 		}
 		break;
 		}
@@ -219,10 +274,18 @@ int main(int argc, char** argv)
 		}
 	}
 
+	// Clean up threads
+	for (const auto& itr : threads)
+	{
+		CloseHandle(itr.second);
+	}
+	threads.clear();
+
+	// Close process handles
 	CloseHandle(pi.hThread);
 	CloseHandle(pi.hProcess);
 
-	printf("breakpointHitCounter: %d == %d?\n", breakpointHitCounter, expectedHitCounter);
+	printf("breakpointHitCounter: %d == %d (%s)\n", breakpointHitCounter, expectedHitCounter, breakpointHitCounter == expectedHitCounter ? "GOOD" : "BAD");
 
 	return exitCode;
 }
