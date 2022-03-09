@@ -2,7 +2,9 @@
 #include <vector>
 #include <cassert>
 #include <utility>
-#include <Windows.h>
+
+#include <phnt_windows.h>
+#include <phnt.h>
 
 int main(int argc, char** argv)
 {

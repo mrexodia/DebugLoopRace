@@ -2,11 +2,30 @@
 name = "DebugLoopRace"
 version = "0.1.0"
 
+[fetch-content.phnt]
+git = "https://github.com/processhacker/phnt"
+tag = "4953926"
+
+[target.phnt]
+type = "interface"
+alias = "phnt::phnt"
+include-directories = ["${phnt_SOURCE_DIR}"]
+link-libraries = ["ntdll.lib"]
+
+[fetch-content.GTest]
+git = "https://github.com/google/googletest"
+tag = "release-1.11.0"
+
+[fetch-content.zasm]
+git = "https://github.com/ZehMatt/zasm"
+tag = "c49bbf3"
+
 [target.DebugLoop]
 type = "executable"
 sources = ["src/DebugLoop/*.cpp"]
 include-directories = ["include"]
 link-options = ["/INCREMENTAL:NO"]
+link-libraries = ["phnt::phnt", "zasm::zasm"]
 
 [target.DebugLoop.properties]
 VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
@@ -15,3 +34,14 @@ VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
 type = "executable"
 sources = ["src/DebugMe/*.cpp"]
 link-options = ["/DYNAMICBASE:NO", "/INCREMENTAL:NO"]
+
+[target.Debugger]
+type = "static"
+sources = ["src/Debugger/*.cpp", "include/Debugger/*.hpp"]
+include-directories = ["include"]
+compile-features = ["cxx_std_17"]
+
+[target.DebugApi]
+type = "executable"
+sources = ["src/DebugApi/*.cpp"]
+link-libraries = ["Debugger"]

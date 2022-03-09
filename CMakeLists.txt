@@ -32,6 +32,58 @@ project(DebugLoopRace
 		0.1.0
 )
 
+include(FetchContent)
+
+message(STATUS "Fetching phnt (4953926)...")
+FetchContent_Declare(phnt
+	GIT_REPOSITORY
+		"https://github.com/processhacker/phnt"
+	GIT_TAG
+		4953926
+)
+FetchContent_MakeAvailable(phnt)
+
+message(STATUS "Fetching GTest (release-1.11.0)...")
+FetchContent_Declare(GTest
+	GIT_REPOSITORY
+		"https://github.com/google/googletest"
+	GIT_TAG
+		release-1.11.0
+)
+FetchContent_MakeAvailable(GTest)
+
+message(STATUS "Fetching zasm (c49bbf3)...")
+FetchContent_Declare(zasm
+	GIT_REPOSITORY
+		"https://github.com/ZehMatt/zasm"
+	GIT_TAG
+		c49bbf3
+)
+FetchContent_MakeAvailable(zasm)
+
+# Target phnt
+set(CMKR_TARGET phnt)
+set(phnt_SOURCES "")
+
+set(CMKR_SOURCES ${phnt_SOURCES})
+add_library(phnt INTERFACE)
+
+if(phnt_SOURCES)
+	target_sources(phnt INTERFACE ${phnt_SOURCES})
+endif()
+
+add_library(phnt::phnt ALIAS phnt)
+target_include_directories(phnt INTERFACE
+	${phnt_SOURCE_DIR}
+)
+
+target_link_libraries(phnt INTERFACE
+	ntdll.lib
+)
+
+unset(CMKR_TARGET)
+unset(CMKR_SOURCES)
+
 # Target DebugLoop
 set(CMKR_TARGET DebugLoop)
 set(DebugLoop_SOURCES "")
@@ -60,6 +112,11 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${DebugLoop_SOURCES})
 
 target_include_directories(DebugLoop PRIVATE
 	include
+)
+
+target_link_libraries(DebugLoop PRIVATE
+	phnt::phnt
+	zasm::zasm
 )
 
 target_link_options(DebugLoop PRIVATE
@@ -103,6 +160,72 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${DebugMe_SOURCES})
 target_link_options(DebugMe PRIVATE
 	"/DYNAMICBASE:NO"
 	"/INCREMENTAL:NO"
+)
+
+unset(CMKR_TARGET)
+unset(CMKR_SOURCES)
+
+# Target Debugger
+set(CMKR_TARGET Debugger)
+set(Debugger_SOURCES "")
+
+list(APPEND Debugger_SOURCES
+	"src/Debugger/Api.cpp"
+	"include/Debugger/Api.hpp"
+)
+
+list(APPEND Debugger_SOURCES
+	cmake.toml
+)
+
+set(CMKR_SOURCES ${Debugger_SOURCES})
+add_library(Debugger STATIC)
+
+if(Debugger_SOURCES)
+	target_sources(Debugger PRIVATE ${Debugger_SOURCES})
+endif()
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${Debugger_SOURCES})
+
+target_compile_features(Debugger PUBLIC
+	cxx_std_17
+)
+
+target_include_directories(Debugger PUBLIC
+	include
+)
+
+unset(CMKR_TARGET)
+unset(CMKR_SOURCES)
+
+# Target DebugApi
+set(CMKR_TARGET DebugApi)
+set(DebugApi_SOURCES "")
+
+list(APPEND DebugApi_SOURCES
+	"src/DebugApi/DebugApi.cpp"
+)
+
+list(APPEND DebugApi_SOURCES
+	cmake.toml
+)
+
+set(CMKR_SOURCES ${DebugApi_SOURCES})
+add_executable(DebugApi)
+
+if(DebugApi_SOURCES)
+	target_sources(DebugApi PRIVATE ${DebugApi_SOURCES})
+endif()
+
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT DebugApi)
+endif()
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${DebugApi_SOURCES})
+
+target_link_libraries(DebugApi PRIVATE
+	Debugger
 )
 
 unset(CMKR_TARGET)
