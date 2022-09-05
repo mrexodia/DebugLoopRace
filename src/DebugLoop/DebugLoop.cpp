@@ -23,12 +23,38 @@ int main(int argc, char** argv)
 	std::map<DWORD, HANDLE> threads;
 	ULONG_PTR raceFunction = 0, raceCounter = 0;
 
+	bool suspendRequested = false;
 	DWORD threadSteppingId = 0;
 	std::vector<std::pair<DWORD, HANDLE>> suspendedThreads;
+	auto synchronizedSingleStep = [&](DWORD threadId)
+	{
+		auto hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, threadId);
+		if (hThread)
+		{
+			CONTEXT context;
+			context.ContextFlags = CONTEXT_CONTROL;
+			GetThreadContext(hThread, &context);
+			context.EFlags |= 0x100;
+			//context.Rip = breakpointItr->first;
+			SetThreadContext(hThread, &context);
+			CloseHandle(hThread);
+
+			// Indicate that this thread is stepping
+			threadSteppingId = threadId;
+
+			// Request all other threads to be suspended
+			suspendRequested = true;
+
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	};
 	int exitCode = EXIT_FAILURE;
 	unsigned int breakpointHitCounter = 0;
 	unsigned int expectedHitCounter = 0;
-	bool threadStepping = false;
 	ULONG_PTR breakpointAddress = 0;
 	for (bool continueDebugging = true; continueDebugging;)
 	{
@@ -64,7 +90,6 @@ int main(int argc, char** argv)
 			if (threadSteppingId != 0 && debugEvent.dwThreadId != threadSteppingId)
 			{
 				// Reply later if we are currently stepping
-				assert(threadStepping); // TODO: fold these things together in a single state variable
 				continueStatus = DBG_REPLY_LATER;
 			}
 			else if (exception.ExceptionCode == EXCEPTION_BREAKPOINT)
@@ -82,42 +107,15 @@ int main(int argc, char** argv)
 						puts("failed to restore original byte");
 					}
 					// set trap flag
-					auto threadId = debugEvent.dwThreadId;
-					auto hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, threadId);
-					if (hThread)
+					if (!synchronizedSingleStep(debugEvent.dwThreadId))
 					{
-						CONTEXT context;
-						context.ContextFlags = CONTEXT_CONTROL;
-						GetThreadContext(hThread, &context);
-						context.EFlags |= 0x100;
-						//context.Rip = breakpointItr->first;
-						SetThreadContext(hThread, &context);
-						CloseHandle(hThread);
-
-						// Suspend all other threads to handle race condition
-						assert(suspendedThreads.empty());
-						for (const auto& itr : threads)
-						{
-							if (itr.first != threadId)
-							{
-								if (SuspendThread(itr.second) != (DWORD)-1)
-								{
-									suspendedThreads.push_back(itr);
-								}
-							}
-						}
-						threadSteppingId = threadId;
-					}
-					else
-					{
-						puts("OpenThread failed");
+						puts("Error: synchronizedSingleStep");
 						continueDebugging = false;
 					}
-					threadStepping = true;
 					continueStatus = DBG_CONTINUE;
 				}
 			}
-			else if (exception.ExceptionCode == EXCEPTION_SINGLE_STEP && threadStepping)
+			else if (exception.ExceptionCode == EXCEPTION_SINGLE_STEP && threadSteppingId != 0) // threadSteppingId == debugEvent.dwThreadId ?
 			{
 				// Confirm the single step event is for the thread we expect
 				assert(threadSteppingId == debugEvent.dwThreadId);
@@ -169,7 +167,11 @@ int main(int argc, char** argv)
 			auto threadId = debugEvent.dwThreadId;
 			assert(threads.count(threadId) == 0);
 			auto hThread = OpenThread(THREAD_ALL_ACCESS, false, threadId);
-			assert(hThread != nullptr);
+			if (hThread == nullptr)
+			{
+				// TODO: THREAD_ALL_ACCESS?
+				DuplicateHandle(GetCurrentProcess(), debugEvent.u.CreateThread.hThread, GetCurrentProcess(), &hThread, 0, FALSE, DUPLICATE_SAME_ACCESS);
+			}
 			threads.emplace(threadId, hThread);
 		}
 		break;
@@ -230,6 +232,17 @@ int main(int argc, char** argv)
 		case EXIT_THREAD_DEBUG_EVENT:
 		{
 			auto threadId = debugEvent.dwThreadId;
+
+			// The thread that was stepping terminated, resume the threads we suspended
+			if (threadSteppingId == threadId)
+			{
+				for (const auto& itr : suspendedThreads)
+				{
+					ResumeThread(itr.second);
+				}
+				suspendedThreads.clear();
+				threadSteppingId = 0;
+			}
 			assert(threads.count(threadId) != 0);
 			auto hThread = threads.at(threadId);
 			CloseHandle(hThread);
@@ -265,6 +278,30 @@ int main(int argc, char** argv)
 			assert(false);
 		}
 		break;
+		}
+
+		if (suspendRequested)
+		{
+			auto threadId = debugEvent.dwThreadId;
+
+			// Make sure the request is for the current thread
+			assert(threadSteppingId == threadId);
+
+			// Suspend all other threads to handle race condition
+			assert(suspendedThreads.empty());
+			for (const auto& itr : threads)
+			{
+				if (itr.first != threadId)
+				{
+					if (SuspendThread(itr.second) != (DWORD)-1)
+					{
+						suspendedThreads.push_back(itr);
+					}
+				}
+			}
+
+			// The suspend request has been handled
+			suspendRequested = false;
 		}
 
 		if (!ContinueDebugEvent(debugEvent.dwProcessId, debugEvent.dwThreadId, continueStatus))
