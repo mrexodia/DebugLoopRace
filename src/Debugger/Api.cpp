@@ -81,7 +81,7 @@ void Debugger::await(Awaitable id)
 	{
 		if (!wait_for_event())
 			throw std::exception();
-		if (!handle_event())
+		if (!dispatch_event())
 			throw std::exception();
 		if (m_signalled.m_id == id.m_id)
 			break;
@@ -103,7 +103,7 @@ void Debugger::loop(Awaitable until_id)
 		{
 			break;
 		}
-		if (!handle_event())
+		if (!dispatch_event())
 		{
 			break;
 		}
@@ -126,8 +126,15 @@ bool Debugger::wait_for_event()
 	return true;
 }
 
-bool Debugger::handle_event()
+bool Debugger::dispatch_event()
 {
+	// Maybe merge wait_for_event and this function together
+	EventData event;
+	if (event.type == Event::software_breakpoint)
+	{
+		auto& e = std::get<SoftwareBreakpointEvent>(event.data);
+		m_breakpoints[e.address](*this);
+	}
 	return true;
 }
 

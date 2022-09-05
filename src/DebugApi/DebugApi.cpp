@@ -2,101 +2,47 @@
 
 #include <Windows.h>
 
-enum class AccessOperation
+
+enum ContinueStatus
 {
-    read = 0,
-    write = 1,
-    execute = 8,
+    handled_by_debugger,
+    dispatch_to_debuggee,
 };
 
-enum class HardwareType
+struct OsDebuggerInterface
 {
-    access,
-    write,
-    execute,
+    virtual void mem_read(uint64_t address, void* data, size_t size) = 0;
+    // reg_read. reg_write, mem_write, memory protection blah
+
+
 };
 
-enum class HardwareSize
+struct OsDebugger
 {
-    size_byte,
-    size_word,
-    size_dword,
-    size_qword,
-};
+    ContinueStatus dispatch_exception(ExceptionEvent& event)
+    {
 
-struct DebugEvent
-{
-    uint32_t process_id = 0;
-    uint32_t thread_id = 0;
-};
+    }
 
-struct ProcessCreateEvent
-{
-    uint32_t pid = 0;
-};
+    void loop()
+    {
+        DEBUG_EVENT e;
+        WaitForDebugEvent(&e, 0);
+        DWORD continue_status = 0;
 
-struct ProcessExitEvent
-{
-    uint32_t pid = 0;
-};
+        switch (e.dwDebugEventCode)
+        {
+        case EXCEPTION_DEBUG_EVENT:
+        {
+            ExceptionEvent e_api;
+            e.u.Exception;
+            continue_status = dispatch_exception(e_api);
+        }
+        break;
+        }
 
-struct ThreadCreateEvent
-{
-    uint32_t tid = 0;
-};
-
-struct ThreadExitEvent
-{
-    uint32_t tid = 0;
-};
-
-struct ModuleLoadEvent
-{
-    uint64_t base = 0;
-};
-
-struct ModuleUnloadEvent
-{
-    uint64_t base = 0;
-};
-
-struct ExceptionEvent
-{
-    bool first_chance = false;
-    uint32_t code = 0;
-    uint64_t address = 0;
-    AccessOperation operation = AccessOperation::read;
-    uint64_t access_address = 0;
-};
-
-struct DebugStringEvent
-{
-    std::string message;
-};
-
-struct SystemBreakpointEvent
-{
-};
-
-struct SoftwareBreakpointEvent
-{
-    uint64_t address = 0;
-};
-
-struct HardwareBreakpointEvent
-{
-    HardwareType type = HardwareType::access;
-    HardwareSize size = HardwareSize::size_byte;
-};
-
-struct MemoryBreakpointEvent
-{
-    uint64_t address = 0;
-    AccessOperation operation = AccessOperation::read;
-};
-
-struct StepEvent
-{
+        ContinueDebugEvent(0, 1, continue_status);
+    }
 };
 
 int main()
@@ -104,8 +50,12 @@ int main()
     Debugger dbg;
     dbg.start("DebugMe.exe");
     // example of the callback-based API (for listening)
+    //dbg.memory_read_breakpoint(0x1400001010, [](Debugger& dbg, uint64_t address, )
     dbg.breakpoint(0x1400001010, [](Debugger& dbg)
     {
+        //callback(dbg, dbg.software_breakpoint());
+        //dbg.hardware_event().address
+        //dbg.hardware_event().size;
         if(dbg.read_byte(dbg.reg_read(Register::rsp) > 3))
         {
             auto rsp = dbg.reg_read(Register::rsp);
