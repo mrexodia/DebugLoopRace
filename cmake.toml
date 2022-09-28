@@ -15,3 +15,13 @@ VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
 type = "executable"
 sources = ["src/DebugMe/*.cpp"]
 link-options = ["/DYNAMICBASE:NO", "/INCREMENTAL:NO"]
+
+[target.TestTitanEngine]
+type = "executable"
+sources = ["src/TestTitanEngine/*.cpp", "src/TestTitanEngine/*.h"]
+link-directories = ["src/TestTitanEngine"]
+x64.link-libraries = ["TitanEngine_x64"]
+x32.link-libraries = ["TitanEngine_x86"]
+
+[target.TestTitanEngine.properties]
+VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""

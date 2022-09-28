@@ -108,3 +108,54 @@ target_link_options(DebugMe PRIVATE
 unset(CMKR_TARGET)
 unset(CMKR_SOURCES)
 
+# Target TestTitanEngine
+set(CMKR_TARGET TestTitanEngine)
+set(TestTitanEngine_SOURCES "")
+
+list(APPEND TestTitanEngine_SOURCES
+	"src/TestTitanEngine/TestTitanEngine.cpp"
+	"src/TestTitanEngine/TitanEngine.h"
+)
+
+list(APPEND TestTitanEngine_SOURCES
+	cmake.toml
+)
+
+set(CMKR_SOURCES ${TestTitanEngine_SOURCES})
+add_executable(TestTitanEngine)
+
+if(TestTitanEngine_SOURCES)
+	target_sources(TestTitanEngine PRIVATE ${TestTitanEngine_SOURCES})
+endif()
+
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TestTitanEngine)
+endif()
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${TestTitanEngine_SOURCES})
+
+target_link_directories(TestTitanEngine PRIVATE
+	"src/TestTitanEngine"
+)
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8) # x64
+	target_link_libraries(TestTitanEngine PRIVATE
+		TitanEngine_x64
+	)
+endif()
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 4) # x32
+	target_link_libraries(TestTitanEngine PRIVATE
+		TitanEngine_x86
+	)
+endif()
+
+set_target_properties(TestTitanEngine PROPERTIES
+	VS_DEBUGGER_COMMAND_ARGUMENTS
+		"\"$<TARGET_FILE:DebugMe>\""
+)
+
+unset(CMKR_TARGET)
+unset(CMKR_SOURCES)
+
