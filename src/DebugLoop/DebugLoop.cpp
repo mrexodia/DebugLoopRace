@@ -295,6 +295,11 @@ int main(int argc, char** argv)
 
 		case LOAD_DLL_DEBUG_EVENT:
 		{
+			const auto& dll = debugEvent.u.LoadDll;
+			if (dll.hFile)
+			{
+				CloseHandle(dll.hFile);
+			}
 		}
 		break;
 

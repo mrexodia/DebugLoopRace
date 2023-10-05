@@ -23,6 +23,10 @@ sources = ["src/DebugMe/*.cpp"]
 type = "test"
 sources = ["src/MemoryTest/*.cpp"]
 
+[target.AntiDebugHandle]
+type = "test"
+sources = ["src/AntiDebugHandle/*.cpp"]
+
 [target.TestTitanEngine]
 type = "executable"
 sources = ["src/TestTitanEngine/*.cpp", "src/TestTitanEngine/*.h"]

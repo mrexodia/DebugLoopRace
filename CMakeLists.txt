@@ -142,6 +142,40 @@ target_link_options(MemoryTest PRIVATE
 unset(CMKR_TARGET)
 unset(CMKR_SOURCES)
 
+# Target AntiDebugHandle
+set(CMKR_TARGET AntiDebugHandle)
+set(AntiDebugHandle_SOURCES "")
+
+list(APPEND AntiDebugHandle_SOURCES
+	"src/AntiDebugHandle/AntiDebugHandle.cpp"
+)
+
+list(APPEND AntiDebugHandle_SOURCES
+	cmake.toml
+)
+
+set(CMKR_SOURCES ${AntiDebugHandle_SOURCES})
+add_executable(AntiDebugHandle)
+
+if(AntiDebugHandle_SOURCES)
+	target_sources(AntiDebugHandle PRIVATE ${AntiDebugHandle_SOURCES})
+endif()
+
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT AntiDebugHandle)
+endif()
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${AntiDebugHandle_SOURCES})
+
+target_link_options(AntiDebugHandle PRIVATE
+	"/DYNAMICBASE:NO"
+	"/INCREMENTAL:NO"
+)
+
+unset(CMKR_TARGET)
+unset(CMKR_SOURCES)
+
 # Target TestTitanEngine
 set(CMKR_TARGET TestTitanEngine)
 set(TestTitanEngine_SOURCES "")
