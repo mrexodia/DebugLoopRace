@@ -56,6 +56,7 @@ int main(int argc, char** argv)
 	unsigned int breakpointHitCounter = 0;
 	unsigned int expectedHitCounter = 0;
 	ULONG_PTR breakpointAddress = 0;
+	bool systemBreakpoint = false;
 	for (bool continueDebugging = true; continueDebugging;)
 	{
 		DEBUG_EVENT debugEvent = {};
@@ -114,50 +115,83 @@ int main(int argc, char** argv)
 					}
 					continueStatus = DBG_CONTINUE;
 				}
-			}
-			else if (exception.ExceptionCode == EXCEPTION_SINGLE_STEP && threadSteppingId != 0) // threadSteppingId == debugEvent.dwThreadId ?
-			{
-				// Confirm the single step event is for the thread we expect
-				assert(threadSteppingId == debugEvent.dwThreadId);
-
-				// Resume the other threads
-				for (const auto& itr : suspendedThreads)
+				else if (!systemBreakpoint)
 				{
-					ResumeThread(itr.second);
-				}
-				suspendedThreads.clear();
-				threadSteppingId = 0;
-
-				printf("single step after breakpoint %p\n", breakpointAddress);
-				// restore CC
-				unsigned char breakpointByte = 0xCC;
-				SIZE_T temp = 0;
-				if (!WriteProcessMemory(pi.hProcess, LPVOID(breakpointAddress), &breakpointByte, 1, &temp))
-				{
-					printf("failed to restore breakpoint %p\n", breakpointAddress);
-				}
-
-				// unset trap flag
-				auto hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, debugEvent.dwThreadId);
-				if (hThread)
-				{
-					CONTEXT context;
-					context.ContextFlags = CONTEXT_CONTROL;
-					GetThreadContext(hThread, &context);
-					printf("Rip: %p, Eflags: %x\n", context.Rip, context.EFlags);
-					context.EFlags &= ~0x100;
-					if (!SetThreadContext(hThread, &context))
-					{
-						puts("SetThreadContext failed");
-					}
-					CloseHandle(hThread);
+					puts("system breakpoint!");
+					systemBreakpoint = true;
 				}
 				else
 				{
-					puts("OpenThread failed");
-					continueDebugging = false;
+					auto hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, debugEvent.dwThreadId);
+					if (!hThread)
+						__debugbreak();
+					CONTEXT Context;
+					Context.ContextFlags = CONTEXT_CONTROL;
+					if (!GetThreadContext(hThread, &Context))
+						__debugbreak();
+					printf("Hit int3 %p (RIP: %p, FirstChance: %u)\n", breakpointAddress, Context.Rip, debugEvent.u.Exception.dwFirstChance);
+					continueStatus = DBG_CONTINUE;
+					// single step
+					Context.EFlags |= 0x100;
+					SetThreadContext(hThread, &Context);
+					CloseHandle(hThread);
 				}
-				continueStatus = DBG_CONTINUE;
+			}
+			else if (exception.ExceptionCode == EXCEPTION_SINGLE_STEP) // threadSteppingId == debugEvent.dwThreadId ?
+			{
+				if (threadSteppingId != 0)
+				{
+					// Confirm the single step event is for the thread we expect
+					assert(threadSteppingId == debugEvent.dwThreadId);
+
+					// Resume the other threads
+					for (const auto& itr : suspendedThreads)
+					{
+						ResumeThread(itr.second);
+					}
+					suspendedThreads.clear();
+					threadSteppingId = 0;
+
+					printf("single step after breakpoint %p\n", breakpointAddress);
+					// restore CC
+					unsigned char breakpointByte = 0xCC;
+					SIZE_T temp = 0;
+					if (!WriteProcessMemory(pi.hProcess, LPVOID(breakpointAddress), &breakpointByte, 1, &temp))
+					{
+						printf("failed to restore breakpoint %p\n", breakpointAddress);
+					}
+
+					// unset trap flag
+					auto hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, debugEvent.dwThreadId);
+					if (hThread)
+					{
+						CONTEXT context;
+						context.ContextFlags = CONTEXT_CONTROL;
+						GetThreadContext(hThread, &context);
+						printf("Rip: %p, Eflags: %x\n", context.Rip, context.EFlags);
+						context.EFlags &= ~0x100;
+						if (!SetThreadContext(hThread, &context))
+						{
+							puts("SetThreadContext failed");
+						}
+						CloseHandle(hThread);
+					}
+					else
+					{
+						puts("OpenThread failed");
+						continueDebugging = false;
+					}
+					continueStatus = DBG_CONTINUE;
+				}
+				else
+				{
+					puts("Allow single step!");
+					continueStatus = DBG_CONTINUE;
+				}
+			}
+			else
+			{
+				printf("Exception: %08X, FirstChance: %u\n", exception.ExceptionCode, debugEvent.u.Exception.dwFirstChance);
 			}
 		}
 		break;
@@ -224,7 +258,8 @@ int main(int argc, char** argv)
 				};
 
 				//setBreakpoint(ULONG_PTR(process.lpStartAddress)); // entry breakpoint (for testing)
-				setBreakpoint(raceFunction);
+				if(raceFunction)
+					setBreakpoint(raceFunction);
 			}
 		}
 		break;
@@ -304,6 +339,16 @@ int main(int argc, char** argv)
 			suspendRequested = false;
 		}
 
+		auto statusName = "<unknown>";
+		if (continueStatus == DBG_CONTINUE)
+			statusName = "DBG_CONTINUE";
+		else if (continueStatus == DBG_EXCEPTION_NOT_HANDLED)
+			statusName = "DBG_EXCEPTION_NOT_HANDLED";
+		else if (continueStatus == DBG_EXCEPTION_HANDLED)
+			statusName = "DBG_EXCEPTION_HANDLED";
+		else if (continueStatus == DBG_REPLY_LATER)
+			statusName = "DBG_REPLY_LATER";
+		printf("ContinueDebugEvent(%u, %u, %s)\n", debugEvent.dwProcessId, debugEvent.dwThreadId, statusName);
 		if (!ContinueDebugEvent(debugEvent.dwProcessId, debugEvent.dwThreadId, continueStatus))
 		{
 			puts("ContinueDebugEvent failed");
@@ -323,6 +368,8 @@ int main(int argc, char** argv)
 	CloseHandle(pi.hProcess);
 
 	printf("breakpointHitCounter: %d == %d (%s)\n", breakpointHitCounter, expectedHitCounter, breakpointHitCounter == expectedHitCounter ? "GOOD" : "BAD");
+
+	system("pause");
 
 	return exitCode;
 }
