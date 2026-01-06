@@ -12,11 +12,10 @@ set(CMKR_ROOT_PROJECT OFF)
 if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	set(CMKR_ROOT_PROJECT ON)
 
-	# Bootstrap cmkr
-	include(cmkr.cmake OPTIONAL RESULT_VARIABLE CMKR_INCLUDE_RESULT)
-	if(CMKR_INCLUDE_RESULT)
-		cmkr()
-	endif()
+	# include(cmkr.cmake OPTIONAL RESULT_VARIABLE CMKR_INCLUDE_RESULT)
+	# if(CMKR_INCLUDE_RESULT)
+	# 	cmkr()
+	# endif()
 
 	# Enable folder support
 	set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -220,6 +219,57 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 4) # x32
 endif()
 
 set_target_properties(TestTitanEngine PROPERTIES
+	VS_DEBUGGER_COMMAND_ARGUMENTS
+		"\"$<TARGET_FILE:DebugMe>\""
+)
+
+unset(CMKR_TARGET)
+unset(CMKR_SOURCES)
+
+# Target TestDeletionRace
+set(CMKR_TARGET TestDeletionRace)
+set(TestDeletionRace_SOURCES "")
+
+list(APPEND TestDeletionRace_SOURCES
+	"src/TestDeletionRace/TestDeletionRace.cpp"
+	"src/TestDeletionRace/TitanEngine.h"
+)
+
+list(APPEND TestDeletionRace_SOURCES
+	cmake.toml
+)
+
+set(CMKR_SOURCES ${TestDeletionRace_SOURCES})
+add_executable(TestDeletionRace)
+
+if(TestDeletionRace_SOURCES)
+	target_sources(TestDeletionRace PRIVATE ${TestDeletionRace_SOURCES})
+endif()
+
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TestDeletionRace)
+endif()
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${TestDeletionRace_SOURCES})
+
+target_link_directories(TestDeletionRace PRIVATE
+	"src/TestDeletionRace"
+)
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8) # x64
+	target_link_libraries(TestDeletionRace PRIVATE
+		TitanEngine_x64
+	)
+endif()
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 4) # x32
+	target_link_libraries(TestDeletionRace PRIVATE
+		TitanEngine_x86
+	)
+endif()
+
+set_target_properties(TestDeletionRace PROPERTIES
 	VS_DEBUGGER_COMMAND_ARGUMENTS
 		"\"$<TARGET_FILE:DebugMe>\""
 )

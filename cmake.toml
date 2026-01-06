@@ -36,3 +36,13 @@ x32.link-libraries = ["TitanEngine_x86"]
 
 [target.TestTitanEngine.properties]
 VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
+
+[target.TestDeletionRace]
+type = "executable"
+sources = ["src/TestDeletionRace/*.cpp", "src/TestDeletionRace/*.h"]
+link-directories = ["src/TestDeletionRace"]
+x64.link-libraries = ["TitanEngine_x64"]
+x32.link-libraries = ["TitanEngine_x86"]
+
+[target.TestDeletionRace.properties]
+VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
