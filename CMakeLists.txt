@@ -7,12 +7,11 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 	message(FATAL_ERROR "In-tree builds are not supported. Run CMake from a separate directory: cmake -B build")
 endif()
 
-# Regenerate CMakeLists.txt automatically in the root project
 set(CMKR_ROOT_PROJECT OFF)
 if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	set(CMKR_ROOT_PROJECT ON)
 
-	# Bootstrap cmkr
+	# Bootstrap cmkr and automatically regenerate CMakeLists.txt
 	include(cmkr.cmake OPTIONAL RESULT_VARIABLE CMKR_INCLUDE_RESULT)
 	if(CMKR_INCLUDE_RESULT)
 		cmkr()
@@ -20,11 +19,9 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 
 	# Enable folder support
 	set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-endif()
 
-# Create a configure-time dependency on cmake.toml to improve IDE support
-if(CMKR_ROOT_PROJECT)
-	configure_file(cmake.toml cmake.toml COPYONLY)
+	# Create a configure-time dependency on cmake.toml to improve IDE support
+	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS cmake.toml)
 endif()
 
 project(DebugLoopRace
@@ -32,30 +29,15 @@ project(DebugLoopRace
 		0.1.0
 )
 
-# Target DebugLoop
-set(CMKR_TARGET DebugLoop)
-set(DebugLoop_SOURCES "")
-
-list(APPEND DebugLoop_SOURCES
+# Target: DebugLoop
+set(DebugLoop_SOURCES
+	cmake.toml
 	"src/DebugLoop/DebugLoop.cpp"
 )
 
-list(APPEND DebugLoop_SOURCES
-	cmake.toml
-)
-
-set(CMKR_SOURCES ${DebugLoop_SOURCES})
 add_executable(DebugLoop)
 
-if(DebugLoop_SOURCES)
-	target_sources(DebugLoop PRIVATE ${DebugLoop_SOURCES})
-endif()
-
-get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
-if(NOT CMKR_VS_STARTUP_PROJECT)
-	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT DebugLoop)
-endif()
-
+target_sources(DebugLoop PRIVATE ${DebugLoop_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${DebugLoop_SOURCES})
 
 target_include_directories(DebugLoop PRIVATE
@@ -71,33 +53,20 @@ set_target_properties(DebugLoop PROPERTIES
 		"\"$<TARGET_FILE:DebugMe>\""
 )
 
-unset(CMKR_TARGET)
-unset(CMKR_SOURCES)
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT DebugLoop)
+endif()
 
-# Target DebugMe
-set(CMKR_TARGET DebugMe)
-set(DebugMe_SOURCES "")
-
-list(APPEND DebugMe_SOURCES
+# Target: DebugMe
+set(DebugMe_SOURCES
+	cmake.toml
 	"src/DebugMe/DebugMe.cpp"
 )
 
-list(APPEND DebugMe_SOURCES
-	cmake.toml
-)
-
-set(CMKR_SOURCES ${DebugMe_SOURCES})
 add_executable(DebugMe)
 
-if(DebugMe_SOURCES)
-	target_sources(DebugMe PRIVATE ${DebugMe_SOURCES})
-endif()
-
-get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
-if(NOT CMKR_VS_STARTUP_PROJECT)
-	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT DebugMe)
-endif()
-
+target_sources(DebugMe PRIVATE ${DebugMe_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${DebugMe_SOURCES})
 
 target_link_options(DebugMe PRIVATE
@@ -105,33 +74,20 @@ target_link_options(DebugMe PRIVATE
 	"/INCREMENTAL:NO"
 )
 
-unset(CMKR_TARGET)
-unset(CMKR_SOURCES)
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT DebugMe)
+endif()
 
-# Target MemoryTest
-set(CMKR_TARGET MemoryTest)
-set(MemoryTest_SOURCES "")
-
-list(APPEND MemoryTest_SOURCES
+# Target: MemoryTest
+set(MemoryTest_SOURCES
+	cmake.toml
 	"src/MemoryTest/MemoryTest.cpp"
 )
 
-list(APPEND MemoryTest_SOURCES
-	cmake.toml
-)
-
-set(CMKR_SOURCES ${MemoryTest_SOURCES})
 add_executable(MemoryTest)
 
-if(MemoryTest_SOURCES)
-	target_sources(MemoryTest PRIVATE ${MemoryTest_SOURCES})
-endif()
-
-get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
-if(NOT CMKR_VS_STARTUP_PROJECT)
-	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT MemoryTest)
-endif()
-
+target_sources(MemoryTest PRIVATE ${MemoryTest_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${MemoryTest_SOURCES})
 
 target_link_options(MemoryTest PRIVATE
@@ -139,33 +95,20 @@ target_link_options(MemoryTest PRIVATE
 	"/INCREMENTAL:NO"
 )
 
-unset(CMKR_TARGET)
-unset(CMKR_SOURCES)
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT MemoryTest)
+endif()
 
-# Target AntiDebugHandle
-set(CMKR_TARGET AntiDebugHandle)
-set(AntiDebugHandle_SOURCES "")
-
-list(APPEND AntiDebugHandle_SOURCES
+# Target: AntiDebugHandle
+set(AntiDebugHandle_SOURCES
+	cmake.toml
 	"src/AntiDebugHandle/AntiDebugHandle.cpp"
 )
 
-list(APPEND AntiDebugHandle_SOURCES
-	cmake.toml
-)
-
-set(CMKR_SOURCES ${AntiDebugHandle_SOURCES})
 add_executable(AntiDebugHandle)
 
-if(AntiDebugHandle_SOURCES)
-	target_sources(AntiDebugHandle PRIVATE ${AntiDebugHandle_SOURCES})
-endif()
-
-get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
-if(NOT CMKR_VS_STARTUP_PROJECT)
-	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT AntiDebugHandle)
-endif()
-
+target_sources(AntiDebugHandle PRIVATE ${AntiDebugHandle_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${AntiDebugHandle_SOURCES})
 
 target_link_options(AntiDebugHandle PRIVATE
@@ -173,34 +116,21 @@ target_link_options(AntiDebugHandle PRIVATE
 	"/INCREMENTAL:NO"
 )
 
-unset(CMKR_TARGET)
-unset(CMKR_SOURCES)
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT AntiDebugHandle)
+endif()
 
-# Target TestTitanEngine
-set(CMKR_TARGET TestTitanEngine)
-set(TestTitanEngine_SOURCES "")
-
-list(APPEND TestTitanEngine_SOURCES
+# Target: TestTitanEngine
+set(TestTitanEngine_SOURCES
+	cmake.toml
 	"src/TestTitanEngine/TestTitanEngine.cpp"
 	"src/TestTitanEngine/TitanEngine.h"
 )
 
-list(APPEND TestTitanEngine_SOURCES
-	cmake.toml
-)
-
-set(CMKR_SOURCES ${TestTitanEngine_SOURCES})
 add_executable(TestTitanEngine)
 
-if(TestTitanEngine_SOURCES)
-	target_sources(TestTitanEngine PRIVATE ${TestTitanEngine_SOURCES})
-endif()
-
-get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
-if(NOT CMKR_VS_STARTUP_PROJECT)
-	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TestTitanEngine)
-endif()
-
+target_sources(TestTitanEngine PRIVATE ${TestTitanEngine_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${TestTitanEngine_SOURCES})
 
 target_link_directories(TestTitanEngine PRIVATE
@@ -224,33 +154,20 @@ set_target_properties(TestTitanEngine PROPERTIES
 		"\"$<TARGET_FILE:DebugMe>\""
 )
 
-unset(CMKR_TARGET)
-unset(CMKR_SOURCES)
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TestTitanEngine)
+endif()
 
-# Target TestDeletionRace
-set(CMKR_TARGET TestDeletionRace)
-set(TestDeletionRace_SOURCES "")
-
-list(APPEND TestDeletionRace_SOURCES
+# Target: TestDeletionRace
+set(TestDeletionRace_SOURCES
+	cmake.toml
 	"src/TestDeletionRace/TestDeletionRace.cpp"
 )
 
-list(APPEND TestDeletionRace_SOURCES
-	cmake.toml
-)
-
-set(CMKR_SOURCES ${TestDeletionRace_SOURCES})
 add_executable(TestDeletionRace)
 
-if(TestDeletionRace_SOURCES)
-	target_sources(TestDeletionRace PRIVATE ${TestDeletionRace_SOURCES})
-endif()
-
-get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
-if(NOT CMKR_VS_STARTUP_PROJECT)
-	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TestDeletionRace)
-endif()
-
+target_sources(TestDeletionRace PRIVATE ${TestDeletionRace_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${TestDeletionRace_SOURCES})
 
 target_link_directories(TestDeletionRace PRIVATE
@@ -274,6 +191,7 @@ set_target_properties(TestDeletionRace PROPERTIES
 		"\"$<TARGET_FILE:DebugMe>\""
 )
 
-unset(CMKR_TARGET)
-unset(CMKR_SOURCES)
-
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TestDeletionRace)
+endif()

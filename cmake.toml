@@ -11,20 +11,21 @@ link-options = ["/INCREMENTAL:NO"]
 [target.DebugLoop.properties]
 VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
 
-[target.DebugMe]
+[template.test]
 type = "executable"
-sources = ["src/DebugMe/*.cpp"]
 link-options = ["/DYNAMICBASE:NO", "/INCREMENTAL:NO"]
+
+[target.DebugMe]
+type = "test"
+sources = ["src/DebugMe/*.cpp"]
 
 [target.MemoryTest]
-type = "executable"
+type = "test"
 sources = ["src/MemoryTest/*.cpp"]
-link-options = ["/DYNAMICBASE:NO", "/INCREMENTAL:NO"]
 
 [target.AntiDebugHandle]
-type = "executable"
+type = "test"
 sources = ["src/AntiDebugHandle/*.cpp"]
-link-options = ["/DYNAMICBASE:NO", "/INCREMENTAL:NO"]
 
 [target.TestTitanEngine]
 type = "executable"
