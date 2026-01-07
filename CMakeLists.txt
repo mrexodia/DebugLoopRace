@@ -12,10 +12,11 @@ set(CMKR_ROOT_PROJECT OFF)
 if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	set(CMKR_ROOT_PROJECT ON)
 
-	# include(cmkr.cmake OPTIONAL RESULT_VARIABLE CMKR_INCLUDE_RESULT)
-	# if(CMKR_INCLUDE_RESULT)
-	# 	cmkr()
-	# endif()
+	# Bootstrap cmkr
+	include(cmkr.cmake OPTIONAL RESULT_VARIABLE CMKR_INCLUDE_RESULT)
+	if(CMKR_INCLUDE_RESULT)
+		cmkr()
+	endif()
 
 	# Enable folder support
 	set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -232,7 +233,6 @@ set(TestDeletionRace_SOURCES "")
 
 list(APPEND TestDeletionRace_SOURCES
 	"src/TestDeletionRace/TestDeletionRace.cpp"
-	"src/TestDeletionRace/TitanEngine.h"
 )
 
 list(APPEND TestDeletionRace_SOURCES
@@ -254,7 +254,7 @@ endif()
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${TestDeletionRace_SOURCES})
 
 target_link_directories(TestDeletionRace PRIVATE
-	"src/TestDeletionRace"
+	"src/TestTitanEngine"
 )
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8) # x64

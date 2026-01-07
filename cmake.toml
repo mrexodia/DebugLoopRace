@@ -11,21 +11,20 @@ link-options = ["/INCREMENTAL:NO"]
 [target.DebugLoop.properties]
 VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
 
-[template.test]
+[target.DebugMe]
 type = "executable"
+sources = ["src/DebugMe/*.cpp"]
 link-options = ["/DYNAMICBASE:NO", "/INCREMENTAL:NO"]
 
-[target.DebugMe]
-type = "test"
-sources = ["src/DebugMe/*.cpp"]
-
 [target.MemoryTest]
-type = "test"
+type = "executable"
 sources = ["src/MemoryTest/*.cpp"]
+link-options = ["/DYNAMICBASE:NO", "/INCREMENTAL:NO"]
 
 [target.AntiDebugHandle]
-type = "test"
+type = "executable"
 sources = ["src/AntiDebugHandle/*.cpp"]
+link-options = ["/DYNAMICBASE:NO", "/INCREMENTAL:NO"]
 
 [target.TestTitanEngine]
 type = "executable"
@@ -39,8 +38,8 @@ VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
 
 [target.TestDeletionRace]
 type = "executable"
-sources = ["src/TestDeletionRace/*.cpp", "src/TestDeletionRace/*.h"]
-link-directories = ["src/TestDeletionRace"]
+sources = ["src/TestDeletionRace/*.cpp"]
+link-directories = ["src/TestTitanEngine"]
 x64.link-libraries = ["TitanEngine_x64"]
 x32.link-libraries = ["TitanEngine_x86"]
 

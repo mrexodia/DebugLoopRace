@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
-#include "TitanEngine.h"
+#include "../TestTitanEngine/TitanEngine.h"
 
 static PROCESS_INFORMATION g_pi;
 static ULONG_PTR g_raceFunction = 0;
@@ -66,7 +66,7 @@ static void cbExitProcess(EXIT_PROCESS_DEBUG_INFO* info)
     printf("Result:      %s\n", ok ? "PASS" : "FAIL");
 }
 
-int wmain(int argc, wchar_t** argv)
+static int wmain(int argc, wchar_t** argv)
 {
     if (argc < 2)
     {
