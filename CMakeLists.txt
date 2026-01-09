@@ -29,6 +29,25 @@ project(DebugLoopRace
 		0.1.0
 )
 
+# Target: TitanEngine
+add_library(TitanEngine INTERFACE)
+
+target_include_directories(TitanEngine INTERFACE
+	TitanEngine
+)
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8) # x64
+	target_link_libraries(TitanEngine INTERFACE
+		"${CMAKE_CURRENT_SOURCE_DIR}/TitanEngine/TitanEngine_x64.lib"
+	)
+endif()
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 4) # x32
+	target_link_libraries(TitanEngine INTERFACE
+		"${CMAKE_CURRENT_SOURCE_DIR}/TitanEngine/TitanEngine_x86.lib"
+	)
+endif()
+
 # Target: DebugLoop
 set(DebugLoop_SOURCES
 	cmake.toml
@@ -125,7 +144,6 @@ endif()
 set(TestTitanEngine_SOURCES
 	cmake.toml
 	"src/TestTitanEngine/TestTitanEngine.cpp"
-	"src/TestTitanEngine/TitanEngine.h"
 )
 
 add_executable(TestTitanEngine)
@@ -133,21 +151,13 @@ add_executable(TestTitanEngine)
 target_sources(TestTitanEngine PRIVATE ${TestTitanEngine_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${TestTitanEngine_SOURCES})
 
-target_link_directories(TestTitanEngine PRIVATE
-	"src/TestTitanEngine"
+if(NOT TARGET TitanEngine)
+	message(FATAL_ERROR "Target \"TitanEngine\" referenced by \"TestTitanEngine\" does not exist!")
+endif()
+
+target_link_libraries(TestTitanEngine PRIVATE
+	TitanEngine
 )
-
-if(CMAKE_SIZEOF_VOID_P EQUAL 8) # x64
-	target_link_libraries(TestTitanEngine PRIVATE
-		TitanEngine_x64
-	)
-endif()
-
-if(CMAKE_SIZEOF_VOID_P EQUAL 4) # x32
-	target_link_libraries(TestTitanEngine PRIVATE
-		TitanEngine_x86
-	)
-endif()
 
 set_target_properties(TestTitanEngine PROPERTIES
 	VS_DEBUGGER_COMMAND_ARGUMENTS
@@ -170,21 +180,13 @@ add_executable(TestDeletionRace)
 target_sources(TestDeletionRace PRIVATE ${TestDeletionRace_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${TestDeletionRace_SOURCES})
 
-target_link_directories(TestDeletionRace PRIVATE
-	"src/TestTitanEngine"
+if(NOT TARGET TitanEngine)
+	message(FATAL_ERROR "Target \"TitanEngine\" referenced by \"TestDeletionRace\" does not exist!")
+endif()
+
+target_link_libraries(TestDeletionRace PRIVATE
+	TitanEngine
 )
-
-if(CMAKE_SIZEOF_VOID_P EQUAL 8) # x64
-	target_link_libraries(TestDeletionRace PRIVATE
-		TitanEngine_x64
-	)
-endif()
-
-if(CMAKE_SIZEOF_VOID_P EQUAL 4) # x32
-	target_link_libraries(TestDeletionRace PRIVATE
-		TitanEngine_x86
-	)
-endif()
 
 set_target_properties(TestDeletionRace PROPERTIES
 	VS_DEBUGGER_COMMAND_ARGUMENTS

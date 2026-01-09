@@ -2,6 +2,12 @@
 name = "DebugLoopRace"
 version = "0.1.0"
 
+[target.TitanEngine]
+type = "interface"
+include-directories = ["TitanEngine"]
+x64.link-libraries = ["TitanEngine/TitanEngine_x64.lib"]
+x32.link-libraries = ["TitanEngine/TitanEngine_x86.lib"]
+
 [target.DebugLoop]
 type = "executable"
 sources = ["src/DebugLoop/*.cpp"]
@@ -30,9 +36,7 @@ sources = ["src/AntiDebugHandle/*.cpp"]
 [target.TestTitanEngine]
 type = "executable"
 sources = ["src/TestTitanEngine/*.cpp", "src/TestTitanEngine/*.h"]
-link-directories = ["src/TestTitanEngine"]
-x64.link-libraries = ["TitanEngine_x64"]
-x32.link-libraries = ["TitanEngine_x86"]
+link-libraries = ["::TitanEngine"]
 
 [target.TestTitanEngine.properties]
 VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
@@ -40,9 +44,7 @@ VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
 [target.TestDeletionRace]
 type = "executable"
 sources = ["src/TestDeletionRace/*.cpp"]
-link-directories = ["src/TestTitanEngine"]
-x64.link-libraries = ["TitanEngine_x64"]
-x32.link-libraries = ["TitanEngine_x86"]
+link-libraries = ["::TitanEngine"]
 
 [target.TestDeletionRace.properties]
 VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""

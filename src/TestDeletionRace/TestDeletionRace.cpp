@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
-#include "../TestTitanEngine/TitanEngine.h"
+#include <TitanEngine.h>
 
 static PROCESS_INFORMATION g_pi;
 static ULONG_PTR g_raceFunction = 0;
@@ -46,7 +46,7 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* info)
     if (g_raceFunction)
     {
         printf("RaceFunction: %p\n", (void*)g_raceFunction);
-        SetBPX(g_raceFunction, UE_BREAKPOINT, (void*)cbBreakpoint);
+        SetBPX(g_raceFunction, UE_BREAKPOINT, cbBreakpoint);
     }
 }
 
@@ -59,14 +59,14 @@ static void cbExitProcess(EXIT_PROCESS_DEBUG_INFO* info)
     }
 
     printf("\nRaceCounter: %u (expected 5001)\n", g_finalCount);
-    printf("Exit code:   %u\n", info->dwExitCode);
+    printf("Exit code:   %lu\n", info->dwExitCode);
     printf("BP hits:     %u\n", g_hits);
 
     bool ok = (g_finalCount == 5001) && (info->dwExitCode == 0);
     printf("Result:      %s\n", ok ? "PASS" : "FAIL");
 }
 
-static int wmain(int argc, wchar_t** argv)
+int wmain(int argc, wchar_t** argv)
 {
     if (argc < 2)
     {
@@ -82,8 +82,8 @@ static int wmain(int argc, wchar_t** argv)
     }
     g_pi = *pi;
 
-    SetCustomHandler(UE_CH_CREATEPROCESS, (void*)cbCreateProcess);
-    SetCustomHandler(UE_CH_EXITPROCESS, (void*)cbExitProcess);
+    SetCustomHandler(UE_CH_CREATEPROCESS, (TITANCALLBACKARG)cbCreateProcess);
+    SetCustomHandler(UE_CH_EXITPROCESS, (TITANCALLBACKARG)cbExitProcess);
 
     DebugLoop();
 

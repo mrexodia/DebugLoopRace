@@ -2,6 +2,14 @@
 #include <cstdio>
 #include <cinttypes>
 
+/*
+References:
+- https://github.com/x64dbg/x64dbg/issues/2749
+- https://github.com/x64dbg/x64dbg/issues/1364
+- https://github.com/x64dbg/TitanEngine/issues/5
+- https://github.com/x64dbg/x64dbg/issues/2504
+*/
+
 int main()
 {
     puts("");

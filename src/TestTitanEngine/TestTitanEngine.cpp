@@ -13,7 +13,7 @@ static void cbBreakpoint()
 {
 	const auto& exception = ((DEBUG_EVENT*)GetDebugData())->u.Exception;
 	auto breakpointAddress = (ULONG_PTR)exception.ExceptionRecord.ExceptionAddress;
-	printf("Hit breakpoint %p\n", breakpointAddress);
+	printf("Hit breakpoint 0x%zx\n", breakpointAddress);
 	breakpointHitCounter++;
 }
 
@@ -46,10 +46,10 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* CreateProcessInfo)
 			FreeLibrary(hLib);
 		}
 
-		printf("RaceFunction: %p, RaceCounter: %p\n", raceFunction, raceCounter);
+		printf("RaceFunction: 0x%zx, RaceCounter: 0x%zx\n", raceFunction, raceCounter);
 
 		//SetBPX(ULONG_PTR(process.lpStartAddress), UE_BREAKPOINT, (void*)cbBreakpoint); // entry breakpoint (for testing)
-		SetBPX(raceFunction, UE_BREAKPOINT, (void*)cbBreakpoint);
+		SetBPX(raceFunction, UE_BREAKPOINT, cbBreakpoint);
 	}
 }
 
@@ -75,8 +75,8 @@ int wmain(int argc, wchar_t** argv)
 		return EXIT_FAILURE;
 	}
 	::pi = *pi;
-	SetCustomHandler(UE_CH_CREATEPROCESS, (void*)cbCreateProcess);
-	SetCustomHandler(UE_CH_EXITPROCESS, (void*)cbExitProcess);
+	SetCustomHandler(UE_CH_CREATEPROCESS, (TITANCALLBACKARG)cbCreateProcess);
+	SetCustomHandler(UE_CH_EXITPROCESS, (TITANCALLBACKARG)cbExitProcess);
 	DebugLoop();
 
 	printf("breakpointHitCounter: %d == %d (%s)\n", breakpointHitCounter, expectedHitCounter, breakpointHitCounter == expectedHitCounter ? "GOOD" : "BAD");
