@@ -197,3 +197,53 @@ get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} D
 if(NOT CMKR_VS_STARTUP_PROJECT)
 	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TestDeletionRace)
 endif()
+
+# Target: StepRaceMe
+set(StepRaceMe_SOURCES
+	cmake.toml
+	"src/StepRaceMe/StepRaceMe.cpp"
+)
+
+add_executable(StepRaceMe)
+
+target_sources(StepRaceMe PRIVATE ${StepRaceMe_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${StepRaceMe_SOURCES})
+
+target_link_options(StepRaceMe PRIVATE
+	"/OPT:NOICF"
+	"/INCREMENTAL:NO"
+)
+
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT StepRaceMe)
+endif()
+
+# Target: TestStepRace
+set(TestStepRace_SOURCES
+	cmake.toml
+	"src/TestStepRace/TestStepRace.cpp"
+)
+
+add_executable(TestStepRace)
+
+target_sources(TestStepRace PRIVATE ${TestStepRace_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${TestStepRace_SOURCES})
+
+if(NOT TARGET TitanEngine)
+	message(FATAL_ERROR "Target \"TitanEngine\" referenced by \"TestStepRace\" does not exist!")
+endif()
+
+target_link_libraries(TestStepRace PRIVATE
+	TitanEngine
+)
+
+set_target_properties(TestStepRace PROPERTIES
+	VS_DEBUGGER_COMMAND_ARGUMENTS
+		"\"$<TARGET_FILE:StepRaceMe>\""
+)
+
+get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+if(NOT CMKR_VS_STARTUP_PROJECT)
+	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT TestStepRace)
+endif()

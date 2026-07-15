@@ -48,3 +48,21 @@ link-libraries = ["::TitanEngine"]
 
 [target.TestDeletionRace.properties]
 VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:DebugMe>\""
+
+# Debuggee for the multi-thread breakpoint/step race test. /OPT:NOICF keeps the
+# RaceFunction / ControlFunction / Control2Function bodies from being folded together.
+[target.StepRaceMe]
+type = "executable"
+sources = ["src/StepRaceMe/*.cpp"]
+link-options = ["/OPT:NOICF", "/INCREMENTAL:NO"]
+
+# Driver: exercises per-thread breakpoint/step state across software, hardware and
+# memory breakpoints (see TestStepRace.cpp for the mode list). Pass the mode as a second
+# argument; the CI workflow runs each mode and fails on a non-zero exit or a hang.
+[target.TestStepRace]
+type = "executable"
+sources = ["src/TestStepRace/*.cpp"]
+link-libraries = ["::TitanEngine"]
+
+[target.TestStepRace.properties]
+VS_DEBUGGER_COMMAND_ARGUMENTS = "\"$<TARGET_FILE:StepRaceMe>\""

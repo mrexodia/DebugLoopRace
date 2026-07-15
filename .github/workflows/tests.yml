@@ -1,0 +1,85 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      engine_repo:
+        description: "TitanEngine source repo to build and test"
+        default: "x64dbg/TitanEngine"
+      engine_ref:
+        description: "TitanEngine branch/tag/sha to test"
+        default: ""
+
+jobs:
+  step-race:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout DebugLoopRace
+        uses: actions/checkout@v4
+        with:
+          path: DebugLoopRace
+
+      # Build the engine under test from source so this is a real regression test:
+      # a behaviour regression in TitanEngine makes the modes below fail. The bundled
+      # import lib is only used for linking (API); the freshly built DLL supplies the
+      # implementation at runtime.
+      - name: Checkout TitanEngine
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.engine_repo || 'x64dbg/TitanEngine' }}
+          ref: ${{ github.event.inputs.engine_ref || '' }}
+          path: TitanEngine
+
+      - name: Build TitanEngine.dll
+        working-directory: TitanEngine
+        run: |
+          cmake -B build -A x64
+          cmake --build build --config Release --target TitanEngine
+
+      - name: Build DebugLoopRace tests
+        working-directory: DebugLoopRace
+        run: |
+          cmake -B build -A x64
+          cmake --build build --config Release --target StepRaceMe TestStepRace
+
+      - name: Run breakpoint/step race modes
+        shell: pwsh
+        run: |
+          $rel = "DebugLoopRace/build/Release"
+          # Use the freshly built engine, not any bundled DLL.
+          $dll = Get-ChildItem -Recurse -Path TitanEngine/build -Filter TitanEngine.dll |
+                 Select-Object -First 1 -ExpandProperty FullName
+          Copy-Item $dll "$rel/TitanEngine.dll" -Force
+          $exe = Resolve-Path "$rel/TestStepRace.exe"
+          $dbg = Resolve-Path "$rel/StepRaceMe.exe"
+
+          $modes = @("hijack","multistep","hwhijack","memhijack",
+                     "swstress","hwstress","memstress","hwexit")
+          $failed = @()
+          foreach ($m in $modes) {
+            Write-Host "=== mode: $m ==="
+            # TestStepRace exits 0 on PASS, non-zero on FAIL; a hang is caught by the timeout.
+            $job = Start-Job { param($e,$d,$m)
+              $o = & $e $d $m 2>&1
+              [PSCustomObject]@{ Output = $o; Code = $LASTEXITCODE }
+            } -ArgumentList $exe,$dbg,$m
+            if (Wait-Job $job -Timeout 60) {
+              $r = Receive-Job $job
+              $r.Output | ForEach-Object { Write-Host $_ }
+              if ($r.Code -ne 0) { $failed += "$m (exit $($r.Code))" }
+            } else {
+              Write-Host "TIMEOUT/HANG"
+              Stop-Job $job
+              $failed += "$m (hang)"
+            }
+            Remove-Job $job -Force
+            Get-Process StepRaceMe,TestStepRace -ErrorAction SilentlyContinue |
+              Stop-Process -Force -ErrorAction SilentlyContinue
+          }
+          if ($failed.Count) {
+            Write-Host "::error::Failed modes: $($failed -join ', ')"
+            exit 1
+          }
+          Write-Host "All modes passed."
