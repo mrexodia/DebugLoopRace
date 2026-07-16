@@ -56,7 +56,8 @@ jobs:
           $dbg = Resolve-Path "$rel/StepRaceMe.exe"
 
           $modes = @("hijack","multistep","hwhijack","memhijack",
-                     "swstress","hwstress","memstress","hwexit")
+                     "swstress","hwstress","memstress","hwexit",
+                     "hw2stress","hw2exit")
           $failed = @()
           foreach ($m in $modes) {
             Write-Host "=== mode: $m ==="

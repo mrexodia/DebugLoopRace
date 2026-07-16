@@ -37,9 +37,14 @@
 #include "TitanEngine.h"
 
 static PROCESS_INFORMATION pi;
-static ULONG_PTR raceFunction = 0, controlFunction = 0, control2Function = 0;
+static ULONG_PTR raceFunction = 0, race2Function = 0, controlFunction = 0, control2Function = 0;
 static ULONG_PTR raceCounter = 0;
 static const char* mode = "hijack";
+
+// hw2exit: a second hardware breakpoint (DR1) on Race2Function, to check that it keeps
+// firing after the DR0 breakpoint runs through the thread-exit reset-recovery path.
+static std::atomic<unsigned> race2Hits{0};
+static std::atomic<unsigned> race2AtLastTerminate{0};
 
 static std::atomic<unsigned> bpHits{0};
 static std::atomic<unsigned> stepCbTotal{0};
@@ -56,9 +61,10 @@ static std::atomic<HANDLE> suspended[2] = {};
 
 static DWORD curTid() { return ((DEBUG_EVENT*)GetDebugData())->dwThreadId; }
 static bool isStress() { return strstr(mode, "stress") != nullptr; }
+static bool isExit() { return strstr(mode, "exit") != nullptr; } // hwexit / hw2exit
 // Modes that arm a single-step at the control breakpoint (the step-hijack tests). The
-// stress and hwexit modes only exercise breakpoint step-over reset, no user stepping.
-static bool armsStep() { return !isStress() && strcmp(mode, "hwexit") != 0; }
+// stress and *exit modes only exercise breakpoint step-over reset, no user stepping.
+static bool armsStep() { return !isStress() && !isExit(); }
 
 static void resumeAll()
 {
@@ -118,19 +124,21 @@ static void onRaceHit()
     }
 }
 static void cbRaceBp() { onRaceHit(); }                 // software bp callback
+static void cbRace2Hw(const void*) { race2Hits++; }     // DR1 target (hw2exit)
 static void cbRaceHwMem(const void*)                    // hw / memory bp callback
 {
     onRaceHit();
-    // "hwexit" mode: deterministically reproduce a thread exiting while it is in the
+    // hwexit / hw2exit: deterministically reproduce a thread exiting while it is in the
     // middle of a breakpoint step-over. We are inside the hit callback (the step-over
-    // has been set up but the single-step has not happened yet); terminating this
-    // thread now makes its EXIT_THREAD arrive while it is the thread-being-processed,
-    // orphaning the reset state on a buggy engine.
-    if (strcmp(mode, "hwexit") == 0)
+    // has been set up but the single-step has not happened yet); terminating this thread
+    // now makes its EXIT_THREAD arrive while it is the thread-being-processed, orphaning
+    // the reset state on a buggy engine.
+    if (isExit())
     {
         unsigned n = bpHits.load();
         if (n == 30 || n == 60 || n == 90)
         {
+            if (n == 90) race2AtLastTerminate = race2Hits.load();
             HANDLE h = OpenThread(THREAD_TERMINATE, FALSE, curTid());
             if (h) { TerminateThread(h, 0); CloseHandle(h); }
         }
@@ -151,6 +159,7 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* info)
             return a ? a - (ULONG_PTR)hLib + base : 0;
         };
         raceFunction = rel("RaceFunction");
+        race2Function = rel("Race2Function");
         controlFunction = rel("ControlFunction");
         control2Function = rel("Control2Function");
         raceCounter = rel("RaceCounter");
@@ -171,6 +180,13 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* info)
         SetMemoryBPXEx(raceFunction, 1, UE_MEMORY_EXECUTE, true, cbRaceHwMem);
     else
         SetBPX(raceFunction, UE_BREAKPOINT, cbRaceBp);
+    // hw2exit / hw2stress: a SECOND hardware breakpoint (DR1) on Race2Function, hit by its
+    // own thread. In hw2exit the DR0 breakpoint goes through the thread-exit reset-recovery
+    // path and DR1 must keep firing afterward; hw2stress runs the same two breakpoints with
+    // no thread exit, to tell whether a DR1 loss comes from the recovery or is a plain
+    // two-hardware-breakpoint bug.
+    if (strstr(mode, "hw2"))
+        SetHardwareBreakPoint(race2Function, UE_DR1, UE_HARDWARE_EXECUTE, UE_HARDWARE_SIZE_1, cbRace2Hw);
 }
 
 static void cbExitProcess(EXIT_PROCESS_DEBUG_INFO* info)
@@ -210,6 +226,18 @@ int wmain(int argc, wchar_t** argv)
     // with a non-zero exit code, so this catches the hardware-breakpoint reset crash.
     bool exitOk = (exitCode == 0);
 
+    // hw2exit: after the last DR0 mid-step-over thread exit (and its reset-recovery), the
+    // DR1 breakpoint on Race2Function must still be firing. A recovery that rebuilds DR7
+    // from the dead thread's (empty) context disables DR1 on the live threads, so its hit
+    // count would stop advancing past race2AtLastTerminate.
+    bool dr1Survived = true;
+    unsigned race2After = 0;
+    if (strstr(mode, "hw2"))
+    {
+        race2After = race2Hits.load() - race2AtLastTerminate.load();
+        dr1Survived = (race2After >= 10);
+    }
+
     printf("\n=== mode=%s ===\n", mode);
     printf("RaceFunction bp hits : %u   (expected %u) %s\n", bpHits.load(), expectedRace,
            bpOk ? "OK" : (countIsHardAssert ? "MISMATCH" : "(informational)"));
@@ -217,7 +245,9 @@ int wmain(int argc, wchar_t** argv)
         printf("armed step %d (tid=%u): fired %u time(s) on its own thread\n", i, armedTid[i].load(), firedForArmed[i].load());
     printf("step callbacks       : %u  (WRONG-THREAD: %u)\n", stepCbTotal.load(), stepCbWrongThread.load());
     printf("debuggee exit code   : 0x%08X %s\n", exitCode, exitOk ? "OK" : "CRASH/ABNORMAL");
-    bool pass = stepsOk && exitOk && (bpOk || !countIsHardAssert);
+    if (strstr(mode, "hw2"))
+        printf("DR1 hits (Race2Function): %u %s\n", race2After, dr1Survived ? "OK" : "DR1 DISABLED");
+    bool pass = stepsOk && exitOk && dr1Survived && (bpOk || !countIsHardAssert);
     printf("RESULT: %s\n", pass ? "PASS" : "FAIL");
     return pass ? 0 : 1;
 }

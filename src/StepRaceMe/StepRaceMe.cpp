@@ -4,6 +4,7 @@
 #define EXPORT extern "C" __declspec(dllexport)
 
 EXPORT volatile unsigned int RaceCounter = 0;
+EXPORT volatile unsigned int Race2Counter = 0;
 EXPORT volatile unsigned int ControlCounter = 0;
 EXPORT volatile unsigned int Control2Counter = 0;
 
@@ -14,6 +15,14 @@ EXPORT volatile unsigned int Control2Counter = 0;
 EXPORT __declspec(code_seg("racepage")) __declspec(noinline) void RaceFunction()
 {
     InterlockedIncrement(&RaceCounter);
+}
+
+// A second breakpoint target, hit continuously by its own thread. Used by the multi-
+// hardware-breakpoint test to check that a DR1 breakpoint keeps firing after the DR0
+// breakpoint goes through the thread-exit reset-recovery path.
+EXPORT __declspec(noinline) void Race2Function()
+{
+    InterlockedExchangeAdd((volatile LONG*)&Race2Counter, 3);
 }
 
 // Control points: the debugger arms single-steps here (on two different threads).
@@ -52,6 +61,18 @@ static DWORD WINAPI Stepper(LPVOID)
     return 0;
 }
 
+// Continuously hits Race2Function (the DR1 target for the multi-hw-breakpoint test).
+static DWORD WINAPI Race2Worker(LPVOID)
+{
+    Sleep(80);
+    for (;;)
+    {
+        Race2Function();
+        Sleep(1);
+    }
+    return 0;
+}
+
 int main()
 {
     puts("[DebugMe] Hello debugger!");
@@ -60,10 +81,11 @@ int main()
     for (int i = 0; i < 5; i++)
         CreateThread(nullptr, 0, Worker, nullptr, 0, nullptr);
     CreateThread(nullptr, 0, Stepper, nullptr, 0, nullptr);
+    CreateThread(nullptr, 0, Race2Worker, nullptr, 0, nullptr);
 
     ControlFunction(); // control point on the main thread
     Sleep(600);        // let the workers race and build up a step-over backlog
 
-    printf("[DebugMe] RaceCounter: %u  Control: %u  Control2: %u\n", RaceCounter, ControlCounter, Control2Counter);
+    printf("[DebugMe] RaceCounter: %u  Race2: %u  Control: %u  Control2: %u\n", RaceCounter, Race2Counter, ControlCounter, Control2Counter);
     return 0; // ExitProcess terminates the spinning workers mid-step-over
 }
